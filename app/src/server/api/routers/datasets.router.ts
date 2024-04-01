@@ -9,6 +9,7 @@ import { kysely, prisma } from "~/server/db";
 import { requireCanModifyProject, requireCanViewProject } from "~/utils/accessControl";
 import { error, success } from "~/utils/errorHandling/standardResponses";
 import { generateBlobUploadUrl } from "~/utils/azure/server";
+import { generatePresignedUploadUrl } from "~/utils/aws/server";
 import { env } from "~/env.mjs";
 import { comparisonModels } from "~/utils/comparisonModels";
 import { filtersSchema } from "~/types/shared.types";
@@ -406,6 +407,90 @@ export const datasetsRouter = createTRPCRouter({
       ]);
 
       await enqueueProcessNode({ nodeId: archiveNodeId });
+    }),
+  triggerFileDownloadAWS: protectedProcedure
+    .input(
+      z.object({
+        datasetId: z.string(),
+        blobName: z.string(),
+        fileName: z.string(),
+        fileSize: z.number(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { projectId } = await prisma.dataset.findUniqueOrThrow({
+        where: { id: input.datasetId },
+      });
+      await requireCanModifyProject(projectId, ctx);
+
+      const datasetNode = await kysely
+        .selectFrom("Dataset as d")
+        .where("d.id", "=", input.datasetId)
+        .innerJoin("Node as n", "n.id", "d.nodeId")
+        .selectAll("n")
+        .executeTakeFirst();
+
+      if (!datasetNode) return error("Dataset not found");
+
+      const tDatasetNode = typedNode(datasetNode);
+
+      if (tDatasetNode.type !== "Dataset") return error("Node incorrect type");
+
+      const latestUpload = await prisma.node.findFirst({
+        where: {
+          projectId,
+          type: "Archive",
+          name: { startsWith: "Upload #" },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const latestUploadIndex = latestUpload
+        ? parseInt(latestUpload.name.split("#")[1] as string)
+        : 0;
+
+      const { prismaCreations, archiveNodeId, relabeledOutputId } =
+        prepareIntegratedArchiveCreation({
+          projectId,
+          name: `Upload #${latestUploadIndex + 1}`,
+          maxOutputSize: DEFAULT_MAX_OUTPUT_SIZE,
+          relabelLLM: RelabelOption.SkipRelabel,
+        });
+
+      await prisma.$transaction([
+        ...prismaCreations,
+        prisma.dataChannel.create({
+          data: {
+            originId: relabeledOutputId,
+            destinationId: tDatasetNode.config.manualRelabelNodeId,
+          },
+        }),
+        prisma.datasetFileUpload.create({
+          data: {
+            nodeId: archiveNodeId,
+            blobName: input.blobName,
+            status: "PENDING",
+            fileName: input.fileName,
+            fileSize: input.fileSize,
+            uploadedAt: new Date(),
+          },
+        }),
+      ]);
+
+      await enqueueProcessNode({ nodeId: archiveNodeId });
+    }),
+  getPresignedUploadUrl: protectedProcedure
+    .input(z.object({ projectId: z.string(), filename: z.string() }))
+    .query(async ({ input, ctx }) => {
+      await requireCanModifyProject(input.projectId, ctx);
+      const key = input.filename; // Use the filename as the key
+
+      const presignedUploadUrl = await generatePresignedUploadUrl(key);
+
+      return {
+        presignedUploadUrl,
+        key,
+      };
     }),
   listFileUploads: protectedProcedure
     .input(z.object({ datasetId: z.string() }))

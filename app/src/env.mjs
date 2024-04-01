@@ -62,6 +62,8 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    AWS_REGION: z.string().optional(),
+    AWS_S3_BUCKET_NAME: z.string().optional(),
   },
 
   /**
@@ -132,6 +134,8 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     NEXT_PUBLIC_MAINTENANCE_MODE: process.env.NEXT_PUBLIC_MAINTENANCE_MODE,
+    AWS_REGION: process.env.AWS_REGION,
+    AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation.

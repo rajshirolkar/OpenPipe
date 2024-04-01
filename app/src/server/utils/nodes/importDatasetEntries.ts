@@ -1,7 +1,7 @@
 import { type Prisma } from "@prisma/client";
 
 import { prisma } from "~/server/db";
-import { downloadBlobToStrings } from "~/utils/azure/server";
+import { downloadBlobToStringsFromS3 } from "~/utils/aws/server";
 import {
   isParseError,
   isRowToImport,
@@ -52,7 +52,7 @@ export const importDatasetEntries = async ({
     });
   };
 
-  const rawRows = await downloadBlobToStrings({
+  const rawRows = await downloadBlobToStringsFromS3({
     blobName: datasetFileUpload.blobName,
     // account for up to 50% errored lines
     maxEntriesToImport: maxEntriesToImport * 2,

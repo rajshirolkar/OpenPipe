@@ -6,7 +6,7 @@ import { toNodeStream } from "ix/asynciterable/tonodestream";
 import { env } from "~/env.mjs";
 import { kysely, prisma } from "~/server/db";
 import { callbackBaseUrl, trainerv1 } from "~/server/modal-rpc/clients";
-import { uploadJsonl } from "~/utils/azure/server";
+import { uploadJsonlToS3 } from "~/utils/aws/server";
 import defineTask from "../defineTask";
 import { trainOpenaiFineTune } from "./trainOpenaiFineTune";
 import { CURRENT_PIPELINE_VERSION } from "~/types/shared.types";
@@ -132,7 +132,7 @@ const trainModalFineTune = async (fineTuneId: string) => {
     },
   });
 
-  const blobName = await uploadJsonl(toNodeStream(formattedRows));
+  const blobName = await uploadJsonlToS3(toNodeStream(formattedRows));
 
   const huggingFaceModelId = `OpenPipe/ft-${env.NODE_ENV}-${fineTuneId}-${fineTune.slug}`;
 

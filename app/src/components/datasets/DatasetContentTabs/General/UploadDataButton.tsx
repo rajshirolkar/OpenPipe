@@ -24,7 +24,7 @@ import { FaReadme } from "react-icons/fa";
 import { useDataset, useHandledAsyncCallback, useSelectedProject } from "~/utils/hooks";
 import { api } from "~/utils/api";
 import ActionButton from "~/components/ActionButton";
-import { uploadDatasetEntryFile } from "~/utils/azure/website";
+import { uploadDatasetEntryFileToS3 } from "~/utils/aws/website";
 import { formatFileSize } from "~/utils/utils";
 import ConditionallyEnable from "~/components/ConditionallyEnable";
 import {
@@ -121,7 +121,7 @@ const UploadDataModal = ({ disclosure }: { disclosure: UseDisclosureReturn }) =>
     }
   }, [disclosure.isOpen, resetState]);
 
-  const triggerFileDownloadMutation = api.datasets.triggerFileDownload.useMutation();
+  const triggerFileDownloadMutation = api.datasets.triggerFileDownloadAWS.useMutation();
 
   const utils = api.useContext();
 
@@ -130,7 +130,7 @@ const UploadDataModal = ({ disclosure }: { disclosure: UseDisclosureReturn }) =>
   const [sendJSONL, sendingInProgress] = useHandledAsyncCallback(async () => {
     if (!selectedProjectId || !dataset || !file) return;
 
-    const blobName = await uploadDatasetEntryFile(selectedProjectId, file);
+    const blobName = await uploadDatasetEntryFileToS3(selectedProjectId, file);
 
     await triggerFileDownloadMutation.mutateAsync({
       datasetId: dataset.id,

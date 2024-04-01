@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 
 import { prisma } from "~/server/db";
 import { createOpenApiRouter, openApiProtectedProc } from "./openApiTrpc";
-import { generateBlobDownloadUrl } from "~/utils/azure/server";
+import { generatePresignedDownloadUrl } from "~/utils/aws/server";
 import { typedFineTune } from "~/types/dbColumns.types";
 import { axolotlConfig } from "~/server/fineTuningProviders/openpipe/axolotlConfig";
 import { env } from "~/env.mjs";
@@ -50,7 +50,7 @@ export const v1ApiRouter = createOpenApiRouter({
           : undefined;
 
       return {
-        trainingDataUrl: generateBlobDownloadUrl(fineTune.trainingBlobName),
+        trainingDataUrl: await generatePresignedDownloadUrl(fineTune.trainingBlobName),
         huggingFaceModelId: fineTune.huggingFaceModelId,
         trainingConfig: fineTune.trainingConfig,
         fireworksBaseModel,
