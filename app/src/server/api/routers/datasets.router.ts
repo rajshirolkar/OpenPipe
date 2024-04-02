@@ -9,7 +9,13 @@ import { kysely, prisma } from "~/server/db";
 import { requireCanModifyProject, requireCanViewProject } from "~/utils/accessControl";
 import { error, success } from "~/utils/errorHandling/standardResponses";
 import { generateBlobUploadUrl } from "~/utils/azure/server";
-import { generatePresignedUploadUrl } from "~/utils/aws/server";
+import {
+  abortMultipartUploadToS3,
+  completeMultipartUploadToS3,
+  generatePresignedUploadUrl,
+  generatePresignedUploadUrlForPart,
+  initiateMultipartUploadToS3,
+} from "~/utils/aws/server";
 import { env } from "~/env.mjs";
 import { comparisonModels } from "~/utils/comparisonModels";
 import { filtersSchema } from "~/types/shared.types";
@@ -606,5 +612,70 @@ export const datasetsRouter = createTRPCRouter({
         .execute();
 
       return success("Source removed");
+    }),
+
+  initiateMultipartUpload: protectedProcedure
+    .input(z.object({ projectId: z.string(), filename: z.string() }))
+    .query(async ({ input, ctx }) => {
+      await requireCanModifyProject(input.projectId, ctx);
+      const key = input.filename;
+
+      // Initiate the multipart upload and get the upload ID
+      const uploadId = await initiateMultipartUploadToS3(key);
+
+      return { uploadId };
+    }),
+
+  getPresignedUploadUrlForPart: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        filename: z.string(),
+        partNumber: z.number(),
+        uploadId: z.string(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      await requireCanModifyProject(input.projectId, ctx);
+      const key = input.filename;
+
+      // Generate the presigned URL for a single part
+      const presignedUploadUrl = await generatePresignedUploadUrlForPart(
+        key,
+        input.partNumber,
+        input.uploadId,
+      );
+
+      return { presignedUploadUrl };
+    }),
+
+  completeMultipartUpload: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        filename: z.string(),
+        uploadId: z.string(),
+        parts: z.array(z.object({ ETag: z.string(), PartNumber: z.number() })),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      await requireCanModifyProject(input.projectId, ctx);
+      const key = input.filename;
+
+      // Complete the multipart upload
+      const result = await completeMultipartUploadToS3(key, input.uploadId, input.parts);
+
+      return result;
+    }),
+
+  abortMultipartUpload: protectedProcedure
+    .input(z.object({ projectId: z.string(), filename: z.string(), uploadId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireCanModifyProject(input.projectId, ctx);
+      const key = input.filename;
+
+      await abortMultipartUploadToS3(key, input.uploadId);
+
+      return { message: "Upload aborted successfully." };
     }),
 });

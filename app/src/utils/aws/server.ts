@@ -13,6 +13,89 @@ const s3 = new AWS.S3({
 
 const bucketName = env.AWS_S3_BUCKET_NAME;
 
+export const initiateMultipartUploadToS3 = async (key: string) => {
+  const params = {
+    Bucket: bucketName as string,
+    Key: key,
+  };
+
+  try {
+    const multipartUpload = await s3.createMultipartUpload(params).promise();
+    return multipartUpload.UploadId;
+  } catch (error) {
+    console.error("Error initiating multipart upload to S3:", error);
+    throw error;
+  }
+};
+
+export const generatePresignedUploadUrlForPart = async (
+  key: string,
+  partNumber: number,
+  uploadId: string,
+) => {
+  const params = {
+    Bucket: bucketName,
+    Key: key,
+    PartNumber: partNumber,
+    UploadId: uploadId,
+    Expires: 600, // Presigned URL expiration time in seconds
+  };
+
+  try {
+    const presignedUploadUrl = await s3.getSignedUrlPromise("uploadPart", params);
+    return presignedUploadUrl;
+  } catch (error) {
+    console.error("Error generating presigned upload URL for part:", error);
+    throw error;
+  }
+};
+
+export const completeMultipartUploadToS3 = async (
+  key: string,
+  uploadId: string,
+  parts: Array<{ ETag: string; PartNumber: number }>,
+) => {
+  const params = {
+    Bucket: bucketName as string,
+    Key: key,
+    UploadId: uploadId,
+    MultipartUpload: {
+      Parts: parts,
+    },
+  };
+
+  try {
+    const completedUpload = await s3.completeMultipartUpload(params).promise();
+    console.log("Completed multipart upload to S3:", completedUpload);
+
+    return {
+      bucket: completedUpload.Bucket,
+      key: completedUpload.Key,
+      location: completedUpload.Location,
+      ETag: completedUpload.ETag,
+    };
+  } catch (error) {
+    console.error("Error completing multipart upload to S3:", error);
+    throw error;
+  }
+};
+
+export const abortMultipartUploadToS3 = async (key: string, uploadId: string) => {
+  const params = {
+    Bucket: bucketName as string,
+    Key: key,
+    UploadId: uploadId,
+  };
+
+  try {
+    await s3.abortMultipartUpload(params).promise();
+    console.log(`Multipart upload aborted for key: ${key}`);
+  } catch (error) {
+    console.error("Error aborting multipart upload to S3:", error);
+    throw error;
+  }
+};
+
 // generate a presigned URL for uploads
 export const generatePresignedUploadUrl = async (key: string) => {
   const params = {
