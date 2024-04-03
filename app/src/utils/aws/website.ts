@@ -39,7 +39,7 @@ export const uploadDatasetEntryFileToS3 = async (projectId: string, file: File) 
     });
 
     // Step 3: Upload the part
-    const uploadPartPromise = await fetch(presignedUploadUrl, {
+    const uploadPartPromise = fetch(presignedUploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": "application/jsonl",
@@ -68,14 +68,12 @@ export const uploadDatasetEntryFileToS3 = async (projectId: string, file: File) 
     });
 
     // Step 4: Complete the multipart upload
-    const completeMultipartUploadResponse = await api.client.datasets.completeMultipartUpload.query(
-      {
-        projectId,
-        filename: blobName,
-        uploadId: uploadId as string,
-        parts,
-      },
-    );
+    await api.client.datasets.completeMultipartUpload.query({
+      projectId,
+      filename: blobName,
+      uploadId: uploadId as string,
+      parts,
+    });
 
     return blobName;
   } catch (error) {
