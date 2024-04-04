@@ -96,17 +96,6 @@ export const abortMultipartUploadToS3 = async (key: string, uploadId: string) =>
   }
 };
 
-// generate a presigned URL for uploads
-export const generatePresignedUploadUrl = async (key: string) => {
-  const params = {
-    Bucket: bucketName,
-    Key: key,
-    Expires: 600,
-  };
-
-  return s3.getSignedUrlPromise("putObject", params);
-};
-
 // Upload a JSONL file stream to S3
 export const uploadJsonlToS3 = async (stream: Readable) => {
   const key = `${inverseDatePrefix()}-${uuidv4()}-training.jsonl`;
